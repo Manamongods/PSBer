@@ -1,6 +1,4 @@
 ﻿#if UNITY_EDITOR
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using UnityEditor;
@@ -8,50 +6,95 @@ using UnityEditor;
 [CreateAssetMenu(menuName = "Custom 2D/PSBer", fileName = "PSBer")]
 public class PSBer : ScriptableObject
 {
+    //Fields
+    [Space(30)]
     public bool refresher;
+    [Space(30)]
+    [Tooltip("If this is false, you generally have to click on \"Refresher\" every time")]
+    public bool constantlyUpdate;
+    [Tooltip("If the .psd file is an exported file, such as an Affinity Designer slice")]
+    public bool deleteSource;
+    public bool debug;
 
-    private static string GetPreFolder()
+
+
+    //Methods
+    private void DelayedRefresh()
     {
-        string dp = Application.dataPath;
-        return dp.Remove(dp.Length - 6, 6);
+        AssetDatabase.Refresh(); //I think doing this in OnValidate can crash the editor
+
+        EditorApplication.update -= DelayedRefresh;
     }
 
+    private void Do()
+    {
+        Do(false);
+    }
+    private void Do(bool onValidate)
+    {
+        string folder = Application.dataPath;
+        folder = Path.GetDirectoryName(folder.Remove(folder.Length - 6, 6) + AssetDatabase.GetAssetPath(this));
+
+        var files = Directory.GetFiles(folder, "*.psd", SearchOption.AllDirectories);
+
+        bool updatedFiles = false;
+
+        foreach (var fromPath in files)
+        {
+            if (fromPath.ToLowerInvariant().EndsWith(".psd"))
+            {
+                bool copy = true;
+
+                var toPath = fromPath.Substring(0, fromPath.Length - 3) + "psb";
+                if (File.Exists(toPath))
+                {
+                    copy = new FileInfo(fromPath).LastWriteTime > new FileInfo(toPath).LastWriteTime;
+                    if (copy)
+                        File.Delete(toPath);
+                }
+
+                if (copy)
+                {
+                    updatedFiles = true;
+                    if (deleteSource)
+                    {
+                        if (debug)
+                            Debug.Log("Renamed (" + fromPath + ") to (" + toPath + ")");
+
+                        File.Move(fromPath, toPath);
+                    }
+                    else
+                    {
+                        if (debug)
+                            Debug.Log("Copied from (" + fromPath + ") to (" + toPath + ")");
+
+                        File.Copy(fromPath, toPath);
+                    }
+                }
+            }
+        }
+
+        if (updatedFiles)
+        {
+            if (onValidate)
+                EditorApplication.update += DelayedRefresh;
+            else
+                AssetDatabase.Refresh();
+        }
+    }
+
+
+
+    //Lifecycle
     private void OnValidate()
     {
         refresher = false;
 
-        var folder = GetPreFolder() + AssetDatabase.GetAssetPath(this);
-        folder = Path.GetDirectoryName(folder);
+        Do(true);
 
-        var files = Directory.GetFiles(folder, "*.psd", SearchOption.AllDirectories);
-
-        bool updated = false;
-
-        foreach (var f in files)
-        {
-            if (f.ToLower().EndsWith(".psd"))
-            {
-                updated = true;
-
-                var dest = f.Substring(0, f.Length - 3) + "psb";
-                if (File.Exists(dest))
-                    File.Delete(dest);
-
-                File.Copy(f, dest); //Move
-            }
-        }
-
-        if (updated)
-        {
-            UnityEditor.EditorApplication.update += DoRefresh;
-        }
-    }
-
-    private void DoRefresh()
-    {
-        AssetDatabase.Refresh(); //I think doing this in OnValidate crashes the editor
-
-        UnityEditor.EditorApplication.update -= DoRefresh;
+        EditorApplication.update -= Do;
+        if (constantlyUpdate)
+            EditorApplication.update += Do;
     }
 }
 #endif
