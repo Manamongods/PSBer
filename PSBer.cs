@@ -28,7 +28,8 @@ public class PSBer : ScriptableObject
 
     private void Do()
     {
-        Do(false);
+        if (!Application.isPlaying)
+            Do(false);
     }
     private void Do(bool onValidate)
     {
