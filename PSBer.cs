@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using UnityEngine;
 using System.IO;
 using UnityEditor;
@@ -19,13 +19,6 @@ public class PSBer : ScriptableObject
 
 
     //Methods
-    private void DelayedRefresh()
-    {
-        AssetDatabase.Refresh(); //I think doing this in OnValidate can crash the editor
-
-        EditorApplication.update -= DelayedRefresh;
-    }
-
     private void Do()
     {
         if (!Application.isPlaying)
@@ -78,7 +71,7 @@ public class PSBer : ScriptableObject
         if (updatedFiles)
         {
             if (onValidate)
-                EditorApplication.update += DelayedRefresh;
+                EditorApplication.delayCall += () => { AssetDatabase.Refresh(); }; //I think doing this in OnValidate can crash the editor
             else
                 AssetDatabase.Refresh();
         }
