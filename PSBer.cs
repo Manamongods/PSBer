@@ -7,6 +7,8 @@ using UnityEditor;
 public class PSBer : ScriptableObject
 {
     //Fields
+    private const int UPDATE_INTERVAL = 20;
+
     [Space(30)]
     public bool refresher;
     [Space(30)]
@@ -19,19 +21,12 @@ public class PSBer : ScriptableObject
 
 
     //Methods
-    private void DelayedRefresh()
+    private void UpdateDo()
     {
-        AssetDatabase.Refresh(); //I think doing this in OnValidate can crash the editor
-
-        EditorApplication.update -= DelayedRefresh;
+        if (Time.frameCount % UPDATE_INTERVAL == 0 && !Application.isPlaying && UnityEditorInternal.InternalEditorUtility.isApplicationActive)
+            Do();
     }
-
     private void Do()
-    {
-        if (!Application.isPlaying)
-            Do(false);
-    }
-    private void Do(bool onValidate)
     {
         string folder = Application.dataPath;
         folder = Path.GetDirectoryName(folder.Remove(folder.Length - 6, 6) + AssetDatabase.GetAssetPath(this));
@@ -77,25 +72,39 @@ public class PSBer : ScriptableObject
 
         if (updatedFiles)
         {
-            if (onValidate)
-                EditorApplication.update += DelayedRefresh;
-            else
-                AssetDatabase.Refresh();
+            EditorApplication.delayCall += () => { AssetDatabase.Refresh(); }; //I think doing this in OnValidate can crash the editor
         }
+    }
+
+    private void AddListener()
+    {
+        EditorApplication.update -= UpdateDo;
+        if (constantlyUpdate)
+            EditorApplication.update += UpdateDo;
     }
 
 
 
     //Lifecycle
+    [InitializeOnLoadMethod]
+    private static void Init()
+    {
+        var psbers = AssetDatabase.FindAssets("t:PSBer");
+        for (int i = 0; i < psbers.Length; i++)
+        {
+            var psber = AssetDatabase.LoadAssetAtPath<PSBer>(AssetDatabase.GUIDToAssetPath(psbers[i]));
+            if (psber)
+                psber.AddListener();
+        }
+    }
+
     private void OnValidate()
     {
         refresher = false;
 
-        Do(true);
+        Do();
 
-        EditorApplication.update -= Do;
-        if (constantlyUpdate)
-            EditorApplication.update += Do;
+        AddListener();
     }
 }
 #endif
