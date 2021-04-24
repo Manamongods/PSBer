@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using UnityEngine;
 using System.IO;
 using UnityEditor;
@@ -72,10 +72,7 @@ public class PSBer : ScriptableObject
 
         if (updatedFiles)
         {
-            if (onValidate)
-                EditorApplication.delayCall += () => { AssetDatabase.Refresh(); }; //I think doing this in OnValidate can crash the editor
-            else
-                AssetDatabase.Refresh();
+            EditorApplication.delayCall += () => { AssetDatabase.Refresh(); }; //I think doing this in OnValidate can crash the editor
         }
     }
 
